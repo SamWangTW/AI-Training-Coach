@@ -51,7 +51,7 @@ Advice based on YOUR data AND your history — not generic templates
 |---|---|---|
 | **LLM** | [Claude API](https://anthropic.com) | Reasoning and response generation |
 | **Agent** | [LangGraph](https://langchain-ai.github.io/langgraph/) | Multi-step, stateful agent orchestration |
-| **Garmin MCP** | [taxuspt/garmin_mcp](https://github.com/Taxuspt/garmin_mcp) | 95+ Garmin Connect tools via MCP |
+| **Garmin MCP** | [etweisberg/garmin-connect-mcp](https://github.com/etweisberg/garmin-connect-mcp) | Garmin Connect tools via MCP |
 | **Custom MCP tools** | Python MCP SDK | Extended training analysis tools |
 | **Memory** | [mem0](https://github.com/mem0ai/mem0) | Long-term personal memory across conversations |
 | **Backend** | [FastAPI](https://fastapi.tiangolo.com) | REST API layer |
@@ -71,7 +71,7 @@ Advice based on YOUR data AND your history — not generic templates
 
 ### Custom MCP Tools
 
-On top of the 95+ tools from [taxuspt/garmin_mcp](https://github.com/Taxuspt/garmin_mcp), this project adds:
+On top of the tools from [etweisberg/garmin-connect-mcp](https://github.com/etweisberg/garmin-connect-mcp), this project adds:
 
 | Tool | What It Does |
 |---|---|
@@ -161,10 +161,7 @@ MEM0_API_KEY=your_key_here        # get from app.mem0.ai, or leave blank for loc
 ### 4. Authenticate with Garmin Connect
 
 ```bash
-uvx --python 3.12 --from git+https://github.com/Taxuspt/garmin_mcp garmin-mcp-auth
-
-# Verify it worked
-uv run garmin-mcp-auth --verify
+npx @etweisberg/garmin-connect-mcp
 ```
 
 ### 5. Run the app
@@ -249,7 +246,7 @@ MCP (Model Context Protocol) gives the agent a standardized way to discover and 
 
 ## Acknowledgements
 
-Built on top of [garmin_mcp](https://github.com/Taxuspt/garmin_mcp) by [@Taxuspt](https://github.com/Taxuspt) — an excellent open source MCP server covering 95%+ of the Garmin Connect API. Extended with custom training analysis tools for this project.
+Built on top of [garmin-connect-mcp](https://github.com/etweisberg/garmin-connect-mcp) by [@etweisberg](https://github.com/etweisberg) — an open source MCP server for the Garmin Connect API. Extended with custom training analysis tools for this project.
 
 Memory layer powered by [mem0](https://github.com/mem0ai/mem0) — open source universal memory for AI agents.
 
