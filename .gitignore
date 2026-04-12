@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Env
+.env
+
+# Memory / session
+.coach_memory.json
+.garmin-connect-mcp/
+
+# Playwright artifacts
+.playwright-mcp/
+
+# uv
+uv.lock
+
+# IDE
+.vscode/
+.idea/
