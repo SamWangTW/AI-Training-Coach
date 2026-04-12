@@ -250,6 +250,8 @@ Built on top of [garmin-connect-mcp](https://github.com/etweisberg/garmin-connec
 
 Memory layer powered by [mem0](https://github.com/mem0ai/mem0) — open source universal memory for AI agents.
 
+Memory layer powered by [mem0](https://github.com/mem0ai/mem0) — open source universal memory for AI agents.
+
 ---
 
 ## License
