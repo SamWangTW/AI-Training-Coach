@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "garmin": {
+      "command": "C:\\Users\\User\\Desktop\\project\\coach\\garmin-givemydata\\venv\\Scripts\\python.exe",
+      "args": ["C:\\Users\\User\\Desktop\\project\\coach\\garmin-givemydata\\run_mcp.py"],
+      "cwd": "C:\\Users\\User\\Desktop\\project\\coach\\garmin-givemydata",
+      "env": {
+        "GARMIN_DATA_DIR": "C:\\Users\\User\\Desktop\\project\\coach\\garmin-givemydata"
+      }
+    }
+  }
+}
