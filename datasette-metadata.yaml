@@ -1,0 +1,59 @@
+title: "Garmin Training Data"
+description: "Personal Garmin Connect data — local SQLite"
+
+databases:
+  garmin:
+    file: garmin-givemydata/garmin.db
+    title: "Garmin Database"
+    tables:
+      activity:
+        label_column: activity_name
+        description: "All recorded activities (runs, hikes, swims, etc.)"
+        sort_desc: start_time_local
+      daily_summary:
+        label_column: calendar_date
+        description: "Daily health summary — steps, HR, stress, calories, body battery"
+        sort_desc: calendar_date
+      sleep:
+        label_column: calendar_date
+        description: "Sleep duration and stage breakdown"
+        sort_desc: calendar_date
+      heart_rate:
+        label_column: calendar_date
+        description: "Daily resting heart rate and HR data"
+        sort_desc: calendar_date
+      training_readiness:
+        label_column: calendar_date
+        description: "Daily training readiness score"
+        sort_desc: calendar_date
+      hrv:
+        label_column: calendar_date
+        description: "Heart rate variability (HRV) status"
+        sort_desc: calendar_date
+      body_battery:
+        label_column: calendar_date
+        description: "Body battery charge levels throughout the day"
+        sort_desc: calendar_date
+      stress:
+        label_column: calendar_date
+        description: "Daily stress level averages"
+        sort_desc: calendar_date
+      race_predictions:
+        label_column: calendar_date
+        description: "Garmin's predicted race finish times"
+        sort_desc: calendar_date
+      training_status:
+        label_column: calendar_date
+        description: "Training status and load focus"
+        sort_desc: calendar_date
+      activity_splits:
+        description: "Lap/split data for each activity"
+      activity_hr_zones:
+        description: "Time spent in each HR zone per activity"
+      personal_record:
+        description: "Personal best performances"
+      sync_log:
+        description: "History of data sync runs"
+        hidden: true
+      sqlite_sequence:
+        hidden: true

@@ -11,6 +11,7 @@ Run with:
 """
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -24,13 +25,16 @@ from agent.tools import get_custom_tools
 
 # ── MCP server config ─────────────────────────────────────────────────────────
 
-# On Windows, npx is a .cmd file and can't be invoked directly as a binary
-_NPX = "npx.cmd" if sys.platform == "win32" else "npx"
+_REPO_ROOT = Path(__file__).parent.parent
+_GARMIN_DIR = _REPO_ROOT / "garmin-givemydata"
+_PYTHON = _GARMIN_DIR / "venv" / "Scripts" / "python.exe" if sys.platform == "win32" else _GARMIN_DIR / "venv" / "bin" / "python"
 
 GARMIN_MCP = {
-    "command": _NPX,
-    "args": ["@etweisberg/garmin-connect-mcp"],
+    "command": str(_PYTHON),
+    "args": [str(_GARMIN_DIR / "run_mcp.py")],
     "transport": "stdio",
+    "cwd": str(_GARMIN_DIR),
+    "env": {"GARMIN_DATA_DIR": str(_GARMIN_DIR)},
 }
 
 
