@@ -1,10 +1,11 @@
 """FastAPI backend for the Garmin Training Coach.
 
 Startup sequence:
-  1. Connect to Garmin MCP server (stdio subprocess via langchain-mcp-adapters)
-  2. Load custom analysis tools
-  3. Compile the LangGraph agent with all tools
-  4. Serve /chat and /health endpoints
+  1. Sync latest Garmin data (today + yesterday)
+  2. Connect to Garmin MCP server (stdio subprocess via langchain-mcp-adapters)
+  3. Load custom analysis tools
+  4. Compile the LangGraph agent with all tools
+  5. Serve /chat and /health endpoints
 
 Run with:
     uvicorn api.main:app --reload
@@ -40,8 +41,26 @@ GARMIN_MCP = {
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
+def _auto_sync():
+    """Run incremental Garmin sync at startup. Non-blocking — failures are logged, not raised."""
+    import sys
+    sys.path.insert(0, str(_GARMIN_DIR))
+    try:
+        from garmin_mcp.sync import incremental_sync
+        print("[startup] syncing latest Garmin data...")
+        result = incremental_sync()
+        if result.get("status") == "ok":
+            print(f"[startup] sync complete — {result.get('total_upserted', 0)} records upserted")
+        else:
+            print(f"[startup] sync failed: {result.get('message', 'unknown error')}")
+    except Exception as e:
+        print(f"[startup] sync skipped ({e})")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _auto_sync()
+
     custom_tools = get_custom_tools()
 
     try:

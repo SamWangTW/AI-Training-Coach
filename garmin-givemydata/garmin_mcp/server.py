@@ -463,7 +463,21 @@ def _get_data_freshness() -> dict:
                FROM sync_log ORDER BY created_at DESC LIMIT 1""",
         )
 
-        latest_date = freshness[0]["latest"] if freshness and freshness[0]["latest"] else None
+        freshness_by_table = {r["source"]: r["latest"] for r in freshness}
+
+        # is_stale is based only on the two core tables — daily_summary and activity.
+        # Sleep/HRV may be old due to device settings, not sync failures.
+        core_dates = [freshness_by_table.get("daily_summary"), freshness_by_table.get("activity")]
+        core_latest = max((d for d in core_dates if d), default=None)
+        is_stale = core_latest is None or core_latest < today
+
+        # Flag tables that are genuinely old (>7 days) separately so Claude
+        # doesn't confuse stale peripheral data with a sync failure.
+        stale_cutoff = str(date.today() - timedelta(days=7))
+        stale_tables = {
+            src: d for src, d in freshness_by_table.items()
+            if d and d < stale_cutoff
+        }
 
         # Calculate how long ago the last sync was
         last_sync_ago = None
@@ -486,9 +500,10 @@ def _get_data_freshness() -> dict:
 
         return {
             "today": today,
-            "latest_data_date": latest_date,
-            "is_stale": latest_date is None or latest_date < today,
-            "freshness_by_table": {r["source"]: r["latest"] for r in freshness},
+            "latest_data_date": core_latest,
+            "is_stale": is_stale,
+            "freshness_by_table": freshness_by_table,
+            "stale_tables": stale_tables,
             "last_sync": last_sync[0] if last_sync else None,
             "last_sync_ago": last_sync_ago,
         }
