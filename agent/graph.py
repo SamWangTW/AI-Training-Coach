@@ -8,11 +8,11 @@ from langgraph.graph.message import add_messages
 
 from agent.nodes import make_nodes
 
-
+# State is a dictionary that holds everything the graph needs to pass between nodes for one conversation 
 class State(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], add_messages]
+    messages: Annotated[Sequence[BaseMessage], add_messages] # in-memory chat history for the current session
     user_id: str
-    memories: list[str]
+    memories: list[str] # long-term facts retrieved from mem0 that persist across sessions
 
 
 def create_graph(tools: list):
@@ -27,8 +27,8 @@ def create_graph(tools: list):
     retrieve_memories, call_model, save_memories, should_continue, tool_node = make_nodes(tools)
 
     builder = StateGraph(State)
-
-    builder.add_node("retrieve_memories", retrieve_memories)
+    #("node name", function to run)
+    builder.add_node("retrieve_memories", retrieve_memories) 
     builder.add_node("call_model", call_model)
     builder.add_node("tools", tool_node)
     builder.add_node("save_memories", save_memories)
@@ -36,11 +36,21 @@ def create_graph(tools: list):
     builder.add_edge(START, "retrieve_memories")
     builder.add_edge("retrieve_memories", "call_model")
     builder.add_conditional_edges(
-        "call_model",
-        should_continue,
+        "call_model", # 1. which node this decision comes FROM
+        should_continue, # 2. the function that decides where to go (tools or save_memories)
         {"tools": "tools", "save_memories": "save_memories"},
     )
     builder.add_edge("tools", "call_model")
     builder.add_edge("save_memories", END)
 
     return builder.compile(checkpointer=MemorySaver())
+    """
+    - checkpointer is the parameter name — it's LangGraph saying "plug in whatever storage system you want here
+    - MemorySaver is one specific implementation of that storage — the RAM-based one.
+    MemorySaver()
+    An in-memory store (just a Python dictionary under the hood) that saves the graph state after every node. Think of it as a snapshot system:
+    retrieve_memories runs → snapshot saved
+    call_model runs        → snapshot saved
+    save_memories runs     → snapshot saved
+    "In-memory" means it lives in RAM — if you restart the server, all snapshots are gone. For production you'd swap it for a database-backed checkpointer.     
+    """

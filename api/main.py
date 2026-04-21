@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage
 from pydantic import BaseModel
 
@@ -129,3 +130,26 @@ async def chat(request: ChatRequest):
             return ChatResponse(response=msg.content)
 
     raise HTTPException(status_code=500, detail="Agent produced no response")
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    graph = app.state.graph
+    config = {"configurable": {"thread_id": request.user_id}}
+
+    async def generate():
+        async for event in graph.astream_events(
+            {
+                "messages": [{"role": "user", "content": request.message}],
+                "user_id": request.user_id,
+                "memories": [],
+            },
+            config=config,
+            version="v2",
+        ):
+            if event["event"] == "on_chat_model_stream":
+                chunk = event["data"]["chunk"]
+                if isinstance(chunk.content, str) and chunk.content:
+                    yield chunk.content
+
+    return StreamingResponse(generate(), media_type="text/plain")

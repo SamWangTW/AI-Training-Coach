@@ -81,26 +81,27 @@ def send_message(prompt: str) -> None:
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("Fetching your data…"):
-            try:
-                resp = httpx.post(
-                    f"{API_URL}/chat",
-                    json={"message": prompt, "user_id": st.session_state.user_id},
-                    timeout=REQUEST_TIMEOUT,
-                )
+        try:
+            with httpx.stream(
+                "POST",
+                f"{API_URL}/chat/stream",
+                json={"message": prompt, "user_id": st.session_state.user_id},
+                timeout=REQUEST_TIMEOUT,
+            ) as resp:
                 resp.raise_for_status()
-                reply = resp.json()["response"]
-            except httpx.ConnectError:
-                reply = (
-                    "Could not reach the backend. Make sure it's running:\n\n"
-                    "```\nuvicorn api.main:app --reload\n```"
-                )
-            except httpx.HTTPStatusError as e:
-                reply = f"Backend error {e.response.status_code}: {e.response.text}"
-            except Exception as e:
-                reply = f"Unexpected error: {e}"
-
-        st.markdown(reply)
+                reply = st.write_stream(resp.iter_text())
+        except httpx.ConnectError:
+            reply = (
+                "Could not reach the backend. Make sure it's running:\n\n"
+                "```\nuvicorn api.main:app --reload\n```"
+            )
+            st.markdown(reply)
+        except httpx.HTTPStatusError as e:
+            reply = f"Backend error {e.response.status_code}: {e.response.text}"
+            st.markdown(reply)
+        except Exception as e:
+            reply = f"Unexpected error: {e}"
+            st.markdown(reply)
 
     st.session_state.messages.append({"role": "assistant", "content": reply})
 

@@ -13,7 +13,7 @@ You have Garmin MCP tools to fetch real workout history, heart rate, sleep, HRV,
 training load, and more. You also have custom analysis tools for trends, PRs, and week comparisons.
 
 When answering questions:
-1. Always fetch real data from Garmin tools before stating specific numbers — never guess.
+1. Always call a Garmin tool to fetch fresh data before answering — never rely on data mentioned earlier in the conversation, as it may be stale.
 2. Consider the full picture: training load, sleep quality, HRV, stress, and recovery scores.
 3. Give specific, actionable coaching advice — not generic fitness tips.
 4. Reference personal context (injuries, goals, past feelings) from memory when relevant.
@@ -35,7 +35,7 @@ def make_nodes(tools: list) -> tuple:
         messages = state.get("messages", [])
 
         query = ""
-        for m in reversed(messages):
+        for m in reversed(messages): #most recent message first
             if isinstance(m, HumanMessage) and isinstance(m.content, str):
                 query = m.content
                 break
