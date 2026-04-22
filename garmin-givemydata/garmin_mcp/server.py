@@ -38,16 +38,16 @@ def garmin_schema() -> str:
         result = {}
         for t in tables:
             table_name = t["name"]
-            if not table_name.isidentifier():
+            if not table_name.isidentifier(): # Prevents SQL injection from unexpected table names.
                 continue
-            cols = query(conn, f"PRAGMA table_info([{table_name}])")
+            cols = query(conn, f"PRAGMA table_info([{table_name}])") # Ask the database "what columns does this table have?" — PRAGMA is SQLite's way of asking about its own structure.
             row_count = query(conn, f"SELECT COUNT(*) AS cnt FROM [{table_name}]")[0]["cnt"]
-            result[table_name] = {
+            result[table_name] = { #Build a summary for each table — its column names and how many rows it has.
                 "columns": [c["name"] for c in cols],
                 "row_count": row_count,
             }
         return json.dumps(result, indent=2)
-    finally:
+    finally: #Always close the database connection when done — whether the function succeeded or crashed. 
         conn.close()
 
 

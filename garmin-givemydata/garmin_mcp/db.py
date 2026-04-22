@@ -45,8 +45,8 @@ def get_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
     """Return a sqlite3 connection with WAL mode and Row factory enabled."""
     conn = sqlite3.connect(db_path or DB_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA journal_mode=WAL") #WAL stands for Write-Ahead Log. It allows reading and writing at the same time without blocking each other.
+    conn.execute("PRAGMA foreign_keys=ON") #SQLite doesn't enforce foreign key relationships by default — this turns that on.
     return conn
 
 

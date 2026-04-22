@@ -147,9 +147,9 @@ async def chat_stream(request: ChatRequest):
             config=config,
             version="v2",
         ):
-            if event["event"] == "on_chat_model_stream":
-                chunk = event["data"]["chunk"]
-                if isinstance(chunk.content, str) and chunk.content:
-                    yield chunk.content
+            if event["event"] == "on_chat_model_stream": #Ignore everything except token events. Skip node starts, tool calls, tool results — only care about text being generated.
+                chunk = event["data"]["chunk"] 
+                if isinstance(chunk.content, str) and chunk.content: #Make sure the token is actual text and not empty. During tool calls the model sometimes emits empty chunks.
+                    yield chunk.content #Send this token out immediately. yield is what makes generate() a stream — instead of returning everything at once, it hands out one token at a time as they're ready
 
     return StreamingResponse(generate(), media_type="text/plain")
