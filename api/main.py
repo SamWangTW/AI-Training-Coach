@@ -59,7 +59,7 @@ def _auto_sync():
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI): 
     _auto_sync()
 
     custom_tools = get_custom_tools()
@@ -67,11 +67,11 @@ async def lifespan(app: FastAPI):
     try:
         from langchain_mcp_adapters.client import MultiServerMCPClient
         # v0.1.0+ — no longer a context manager; create client and await get_tools()
-        mcp_client = MultiServerMCPClient({"garmin": GARMIN_MCP})
-        mcp_tools = await mcp_client.get_tools()
-        app.state.mcp_client = mcp_client  # keep reference alive for the process lifetime
+        mcp_client = MultiServerMCPClient({"garmin": GARMIN_MCP}) #Create the MCP client and tell it about the Garmin subprocess configuration.
+        mcp_tools = await mcp_client.get_tools() # Actually launch the Garmin MCP subprocess and ask it "what tools do you have?"
+        app.state.mcp_client = mcp_client  # Store the MCP client on app.state so it stays alive for the entire server lifetime. 
         print(f"[startup] loaded {len(mcp_tools)} Garmin MCP tools + {len(custom_tools)} custom tools")
-        app.state.graph = create_graph(mcp_tools + custom_tools)
+        app.state.graph = create_graph(mcp_tools + custom_tools) #Combine all 44 Garmin MCP tools + 3 custom tools into one list and compile the LangGraph agent.
     except Exception as e:
         print(f"[startup] Garmin MCP unavailable ({e}) — running with custom tools only")
         app.state.graph = create_graph(custom_tools)

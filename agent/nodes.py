@@ -1,5 +1,4 @@
 """LangGraph node functions for the training coach agent."""
-import os
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.prebuilt import ToolNode
@@ -35,7 +34,7 @@ def make_nodes(tools: list) -> tuple:
         messages = state.get("messages", [])
 
         query = ""
-        for m in reversed(messages): #most recent message first
+        for m in reversed(messages):  # most recent message first
             if isinstance(m, HumanMessage) and isinstance(m.content, str):
                 query = m.content
                 break
