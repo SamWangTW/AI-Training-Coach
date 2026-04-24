@@ -34,12 +34,38 @@ You ask a question
         ↓
 FastAPI receives your prompt
         ↓
-LangGraph agent decides what it needs:
-  ├── Garmin MCP   →  queries your local SQLite database (garmin.db)
-  ├── mem0         →  retrieves your personal context (injuries, goals, how you felt)
-  └── Claude API   →  combines everything into a personalized answer
+mem0 retrieves your personal context (injuries, goals, how you felt)
+        ↓
+Claude reads your message + memories, then decides which tools it needs:
+  └── Garmin MCP   →  queries your local SQLite database (garmin.db)
+        ↓
+Claude combines the tool results + your personal context into an answer
         ↓
 Advice based on YOUR data AND your history — not generic templates
+```
+
+```mermaid
+flowchart TB
+    subgraph Nodes["Agent Nodes"]
+        N1["retrieve_memories"]
+        N2["call_model"]
+        N3["tools"]
+        N4["save_memories"]
+    end
+    User["User (Browser)"] -- types message --> UI["Streamlit UI<br>ui/app.py"]
+    UI -- POST /chat/stream --> API["FastAPI Backend<br>api/main.py"]
+    API --> Graph["LangGraph Agent<br>agent/graph.py"]
+    Graph --> N1
+    N1 --> N2
+    N2 -- has tool calls --> N3
+    N3 -- tool results --> N2
+    N2 -- done --> N4
+    N2 <-- generate response --> Claude["Claude Sonnet<br>(Anthropic API)"]
+    N1 <-- search --> Memory["MemoryManager<br>memory/client.py"]
+    N4 <-- save --> Memory
+    Memory <--> Mem0["mem0 / SimpleMemory"]
+    N3 <-- fetch Garmin data --> MCP["Garmin MCP Server<br>garmin-givemydata/run_mcp.py"]
+    MCP <--> Garmin["Garmin SQLite DB"]
 ```
 
 ---
