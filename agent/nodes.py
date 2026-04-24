@@ -4,6 +4,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.prebuilt import ToolNode
 
 from memory.client import get_memory_client
+from agent.graph import MemoryUpdate, ModelUpdate
 
 SYSTEM_PROMPT = """\
 You are a personal AI running coach with direct access to the user's Garmin Connect data.
@@ -29,7 +30,7 @@ def make_nodes(tools: list) -> tuple:
     model_with_tools = model.bind_tools(tools)
     tool_node = ToolNode(tools)
 
-    async def retrieve_memories(state: dict) -> dict:
+    async def retrieve_memories(state: dict) -> MemoryUpdate:
         user_id = state.get("user_id", "default")
         messages = state.get("messages", [])
 
@@ -40,13 +41,16 @@ def make_nodes(tools: list) -> tuple:
                 break
 
         if not query:
-            return {"memories": []}
+            return MemoryUpdate(memories=[])
 
-        results = memory_client.search(query, user_id=user_id)
-        memories = [r["memory"] for r in results.get("results", [])]
-        return {"memories": memories}
+        try:
+            memories = memory_client.search_for_user(query, user_id=user_id)
+        except Exception as e:
+            print(f"[memory] retrieve failed (non-critical): {e}")
+            memories = []
+        return MemoryUpdate(memories=memories)
 
-    async def call_model(state: dict) -> dict:
+    async def call_model(state: dict) -> ModelUpdate:
         memories = state.get("memories", [])
 
         system_content = SYSTEM_PROMPT
@@ -56,7 +60,7 @@ def make_nodes(tools: list) -> tuple:
 
         messages = [SystemMessage(content=system_content)] + list(state["messages"])
         response = await model_with_tools.ainvoke(messages)
-        return {"messages": [response]}
+        return ModelUpdate(messages=[response])
 
     async def save_memories(state: dict) -> dict:
         user_id = state.get("user_id", "default")

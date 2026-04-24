@@ -112,6 +112,13 @@ class MemoryManager:
             print(f"[memory] search failed: {e}")
             return {"results": []}
 
+    def search_for_user(self, query: str, user_id: str) -> list[str]:
+        """Search memories and always return a plain list of strings."""
+        results = self.search(query, user_id=user_id)
+        if not isinstance(results, dict):
+            return []
+        return [r["memory"] for r in results.get("results", []) if isinstance(r, dict) and "memory" in r]
+
     @property
     def mode(self) -> str:
         return self._mode

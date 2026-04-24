@@ -16,6 +16,14 @@ class State(TypedDict):
     memories: list[str]  # long-term facts retrieved from mem0 that persist across sessions
 
 
+# Return types for each node — forces correct key names at the call site
+class MemoryUpdate(TypedDict):
+    memories: list[str]
+
+class ModelUpdate(TypedDict):
+    messages: list[BaseMessage]
+
+
 def create_graph(tools: list):
     """Build and compile the training coach agent graph.
 
