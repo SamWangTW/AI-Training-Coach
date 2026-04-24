@@ -1,27 +1,9 @@
 """LangGraph agent graph for the Garmin Training Coach."""
-from typing import Annotated, Sequence, TypedDict
-
-from langchain_core.messages import BaseMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.message import add_messages
 
 from agent.nodes import make_nodes
-
-
-# State is a dictionary that holds everything the graph needs to pass between nodes for one conversation
-class State(TypedDict):
-    messages: Annotated[Sequence[BaseMessage], add_messages]  # in-memory chat history for the current session
-    user_id: str
-    memories: list[str]  # long-term facts retrieved from mem0 that persist across sessions
-
-
-# Return types for each node — forces correct key names at the call site
-class MemoryUpdate(TypedDict):
-    memories: list[str]
-
-class ModelUpdate(TypedDict):
-    messages: list[BaseMessage]
+from agent.types import State
 
 
 def create_graph(tools: list):

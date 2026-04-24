@@ -4,7 +4,7 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langgraph.prebuilt import ToolNode
 
 from memory.client import get_memory_client
-from agent.graph import MemoryUpdate, ModelUpdate
+from agent.types import MemoryUpdate, ModelUpdate
 
 SYSTEM_PROMPT = """\
 You are a personal AI running coach with direct access to the user's Garmin Connect data.
