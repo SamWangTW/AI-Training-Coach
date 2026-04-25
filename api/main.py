@@ -10,6 +10,7 @@ Startup sequence:
 Run with:
     uvicorn api.main:app --reload
 """
+import asyncio
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -43,20 +44,36 @@ GARMIN_MCP = {
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
 def _auto_sync():
-    """Run incremental Garmin sync at startup. Non-blocking — failures are logged, not raised."""
-    import sys
-    sys.path.insert(0, str(_GARMIN_DIR))
+    """Run incremental Garmin sync at startup using the garmin-givemydata venv.
+
+    Runs as a subprocess so it uses the correct Python environment (which has
+    selenium installed). Non-blocking on failure — errors are logged, not raised.
+    """
+    import subprocess
+    print("[startup] syncing latest Garmin data...")
     try:
-        from garmin_mcp.sync import incremental_sync
-        print("[startup] syncing latest Garmin data...")
-        result = incremental_sync()
-        if result.get("status") == "ok":
-            print(f"[startup] sync complete — {result.get('total_upserted', 0)} records upserted")
+        result = subprocess.run(
+            [str(_PYTHON), "-m", "garmin_mcp.sync"],
+            cwd=str(_GARMIN_DIR),
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode == 0:
+            print("[startup] sync complete")
         else:
-            print(f"[startup] sync failed: {result.get('message', 'unknown error')}")
+            print(f"[startup] sync failed: {result.stderr.strip() or result.stdout.strip()}")
+    except subprocess.TimeoutExpired:
+        print("[startup] sync timed out after 5 minutes")
     except Exception as e:
         print(f"[startup] sync skipped ({e})")
 
+"""
+When FastAPI starts up, it runs the lifespan function in api/main.py:62. 
+This is where the expensive setup happens — connecting to the MCP server, loading tools, compiling the LangGraph agent. 
+You don't want to redo this on every request, so you store the result somewhere persistent.
+"app.state" is that persistent storage. It's just a simple object where you can attach anything
+"""
 
 @asynccontextmanager
 async def lifespan(app: FastAPI): 
@@ -131,25 +148,49 @@ async def chat(request: ChatRequest):
 
     raise HTTPException(status_code=500, detail="Agent produced no response")
 
-
+# GET is "give me something that already exists." POST is "here's my input, now produce something." 
+# Since Claude's response only exists after you send a message, it's POST.
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     graph = app.state.graph
     config = {"configurable": {"thread_id": request.user_id}}
 
     async def generate():
-        async for event in graph.astream_events(
-            {
-                "messages": [{"role": "user", "content": request.message}],
-                "user_id": request.user_id,
-                "memories": [],
-            },
-            config=config,
-            version="v2",
-        ):
-            if event["event"] == "on_chat_model_stream": #Ignore everything except token events. Skip node starts, tool calls, tool results — only care about text being generated.
-                chunk = event["data"]["chunk"] 
-                if isinstance(chunk.content, str) and chunk.content: #Make sure the token is actual text and not empty. During tool calls the model sometimes emits empty chunks.
-                    yield chunk.content #Send this token out immediately. yield is what makes generate() a stream — instead of returning everything at once, it hands out one token at a time as they're ready
-
+        emitted_text = False
+        try:
+            async with asyncio.timeout(90):
+                async for event in graph.astream_events(
+                    {
+                        "messages": [{"role": "user", "content": request.message}],
+                        "user_id": request.user_id,
+                        "memories": [],
+                    },
+                    config=config,
+                    version="v2",
+                ):
+                    kind = event["event"]
+                    if kind == "on_tool_start" and not emitted_text:
+                        # Emit a status line so the UI isn't blank during Garmin MCP calls.
+                        # Skipped once real text is flowing to avoid injecting status mid-response.
+                        tool_name = event.get("name", "tool")
+                        yield f"*Fetching data via `{tool_name}`…*\n\n"
+                    elif kind == "on_chat_model_stream":
+                        chunk = event["data"]["chunk"]
+                        content = chunk.content
+                        if isinstance(content, str) and content:
+                            emitted_text = True
+                            yield content
+                        elif isinstance(content, list):
+                            for block in content:
+                                if isinstance(block, dict) and block.get("type") == "text":
+                                    text = block.get("text", "")
+                                    if text:
+                                        emitted_text = True
+                                        yield text
+        except asyncio.TimeoutError:
+            print("[stream] timed out after 90s")
+            yield "\n\n**Timed out** — the Garmin MCP tool took too long to respond."
+        except Exception as e:
+            print(f"[stream] error: {e}")
+            yield f"\n\n**Error:** `{e}`"
     return StreamingResponse(generate(), media_type="text/plain")

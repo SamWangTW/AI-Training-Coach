@@ -528,13 +528,11 @@ def _do_sync() -> dict:
 def garmin_sync(refresh: bool = True) -> str:
     """Sync the latest data from Garmin Connect.
 
-    Always shows when the last sync happened before doing anything.
-    Set refresh=False to just check the status without syncing.
+    ONLY call this when the user explicitly asks to sync or says data looks outdated.
+    Do NOT call this automatically — it launches a browser and is slow.
+    The database is kept up to date by a background process.
 
-    Use this when:
-    - You just finished a run/ride and want to see the new data
-    - You want to make sure today's health data is loaded
-    - The data looks outdated
+    Set refresh=False to just check freshness status without syncing.
     """
     status = _get_data_freshness()
 

@@ -673,6 +673,38 @@ class GarminClient:
             self._driver.get("https://connect.garmin.com/modern/")
             time.sleep(2)
 
+    # ── Session refresh ──────────────────────────────────────────
+
+    def is_jwt_expired(self) -> bool:
+        """Return True if JWT_WEB cookie is missing or expired."""
+        if not self.session_file or not self.session_file.exists():
+            return True
+        try:
+            session = json.loads(self.session_file.read_text())
+            for cookie in session.get("cookies", []):
+                if cookie.get("name") == "JWT_WEB":
+                    return cookie.get("expiry", 0) < time.time()
+        except Exception:
+            pass
+        return True  # treat unreadable session as expired
+
+    def refresh_if_needed(self) -> bool:
+        """Ensure the session is valid and the browser is running for API calls.
+
+        Always calls login(), which:
+        - Launches Chrome with the persistent browser profile
+        - If GARMIN-SSO is still valid (until 2027): auto-authenticates silently,
+          no credentials needed
+        - If both JWT and SSO expired: auto-fills credentials from GARMIN_EMAIL /
+          GARMIN_PASSWORD in .env
+
+        The browser stays open so the caller can continue making API calls.
+        Returns True if ready, False if login failed.
+        """
+        if self.is_jwt_expired():
+            log.info("JWT_WEB expired — will re-authenticate via GARMIN-SSO")
+        return self.login()
+
     # ── Public API ───────────────────────────────────────────────
 
     def navigate(self, url: str) -> None:

@@ -91,7 +91,9 @@ def incremental_sync(target_date: str = None) -> dict:
     logger.info("Starting incremental sync for %s (+ %s)", today, yesterday)
 
     try:
-        if not client.login():
+        # refresh_if_needed() skips the browser entirely when JWT is still valid,
+        # otherwise falls through to login() which uses GARMIN-SSO for silent re-auth.
+        if not client.refresh_if_needed():
             return {"status": "error", "message": "Login failed"}
 
         client.fetch_all(

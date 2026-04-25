@@ -81,6 +81,7 @@ def send_message(prompt: str) -> None:
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
+        reply = ""
         try:
             with httpx.stream(
                 "POST",
@@ -89,7 +90,7 @@ def send_message(prompt: str) -> None:
                 timeout=REQUEST_TIMEOUT,
             ) as resp:
                 resp.raise_for_status()
-                reply = st.write_stream(resp.iter_text())
+                reply = st.write_stream(chunk for chunk in resp.iter_text() if chunk) or ""
         except httpx.ConnectError:
             reply = (
                 "Could not reach the backend. Make sure it's running:\n\n"
