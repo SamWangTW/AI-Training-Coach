@@ -32,7 +32,6 @@ def incremental_sync(target_date: str = None) -> dict:
     from garmin_client import GarminClient
 
     today = target_date or date.today().isoformat()
-    yesterday = (date.fromisoformat(today) - timedelta(days=1)).isoformat()
 
     PROJECT_DIR = Path(__file__).parent.parent
     PROFILE_DIR = PROJECT_DIR / "browser_profile"
@@ -59,6 +58,18 @@ def incremental_sync(target_date: str = None) -> dict:
     # Open DB connection for direct writes
     conn = get_connection()
     init_db(conn)
+
+    # Determine start_date from last successful sync so missed days are caught.
+    # Falls back to yesterday if no sync has run before.
+    last_sync = conn.execute(
+        "SELECT sync_date FROM sync_log WHERE status='ok' ORDER BY sync_date DESC LIMIT 1"
+    ).fetchone()
+    if last_sync:
+        last_sync_date = date.fromisoformat(last_sync[0][:10])
+        start_date = (last_sync_date - timedelta(days=1)).isoformat()
+    else:
+        start_date = (date.fromisoformat(today) - timedelta(days=1)).isoformat()
+    logger.info("Sync window: %s → %s", start_date, today)
 
     # Build set of already-fetched activity IDs so fetch_all() skips them
     existing = conn.execute("SELECT DISTINCT activity_id FROM activity_splits").fetchall()
@@ -88,17 +99,24 @@ def incremental_sync(target_date: str = None) -> dict:
         session_file=SESSION_FILE,
     )
 
-    logger.info("Starting incremental sync for %s (+ %s)", today, yesterday)
+    logger.info("Starting incremental sync for %s (since %s)", today, start_date)
 
     try:
-        # refresh_if_needed() skips the browser entirely when JWT is still valid,
-        # otherwise falls through to login() which uses GARMIN-SSO for silent re-auth.
+        # Try a silent refresh first (uses GARMIN-SSO, no credentials needed).
+        # Falls back to full login if GARMIN-SSO has also expired.
         if not client.refresh_if_needed():
-            return {"status": "error", "message": "Login failed"}
+            logger.info("Silent refresh failed — falling back to full login")
+            if not client.login():
+                return {"status": "error", "message": "Login failed"}
+        elif not client._driver:
+            # refresh_if_needed closed the browser after saving cookies;
+            # re-open it for the actual data fetch
+            if not client.login():
+                return {"status": "error", "message": "Login failed after refresh"}
 
         client.fetch_all(
             target_date=today,
-            start_date=yesterday,
+            start_date=start_date,
             end_date=today,
             on_batch=on_batch,
             known_activity_ids=known_activity_ids,
@@ -121,7 +139,7 @@ def incremental_sync(target_date: str = None) -> dict:
     return {
         "status": "ok",
         "target_date": today,
-        "yesterday": yesterday,
+        "start_date": start_date,
         "records": counts,
         "total_upserted": total,
     }

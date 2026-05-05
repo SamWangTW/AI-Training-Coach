@@ -43,28 +43,32 @@ GARMIN_MCP = {
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
-def _auto_sync():
-    """Run incremental Garmin sync at startup using the garmin-givemydata venv.
+async def _auto_sync():
+    """Run incremental Garmin sync using the garmin-givemydata venv.
 
-    Runs as a subprocess so it uses the correct Python environment (which has
-    selenium installed). Non-blocking on failure — errors are logged, not raised.
+    Uses asyncio.create_subprocess_exec so the event loop is never blocked.
+    Fired via asyncio.create_task — runs concurrently with MCP setup.
+    Errors are logged, not raised.
     """
-    import subprocess
     print("[startup] syncing latest Garmin data...")
     try:
-        result = subprocess.run(
-            [str(_PYTHON), "-m", "garmin_mcp.sync"],
+        proc = await asyncio.create_subprocess_exec(
+            str(_PYTHON), "-m", "garmin_mcp.sync",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             cwd=str(_GARMIN_DIR),
-            capture_output=True,
-            text=True,
-            timeout=300,
         )
-        if result.returncode == 0:
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
+        except asyncio.TimeoutError:
+            proc.kill()
+            print("[startup] sync timed out after 5 minutes")
+            return
+        if proc.returncode == 0:
             print("[startup] sync complete")
         else:
-            print(f"[startup] sync failed: {result.stderr.strip() or result.stdout.strip()}")
-    except subprocess.TimeoutExpired:
-        print("[startup] sync timed out after 5 minutes")
+            msg = (stderr or stdout).decode().strip()
+            print(f"[startup] sync failed: {msg}")
     except Exception as e:
         print(f"[startup] sync skipped ({e})")
 
@@ -76,8 +80,8 @@ You don't want to redo this on every request, so you store the result somewhere 
 """
 
 @asynccontextmanager
-async def lifespan(app: FastAPI): 
-    _auto_sync()
+async def lifespan(app: FastAPI):
+    asyncio.create_task(_auto_sync())  # fire and forget — runs concurrently with MCP setup
 
     custom_tools = get_custom_tools()
 
@@ -93,7 +97,7 @@ async def lifespan(app: FastAPI):
         print(f"[startup] Garmin MCP unavailable ({e}) — running with custom tools only")
         app.state.graph = create_graph(custom_tools)
 
-    yield
+    yield #Everything before yield = setup. The server doesn't accept any requests until yield is reached.
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
