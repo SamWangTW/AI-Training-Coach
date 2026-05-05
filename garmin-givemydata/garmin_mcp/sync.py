@@ -120,6 +120,7 @@ def incremental_sync(target_date: str = None) -> dict:
             end_date=today,
             on_batch=on_batch,
             known_activity_ids=known_activity_ids,
+            incremental=True,
         )
     finally:
         client.close()

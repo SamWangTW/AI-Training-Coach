@@ -854,6 +854,7 @@ class GarminClient:
         end_date: Optional[str] = None,
         on_batch=None,
         known_activity_ids: Optional[set] = None,
+        incremental: bool = False,
     ) -> dict:
         """Fetch all data from Garmin Connect.
 
@@ -864,6 +865,9 @@ class GarminClient:
             successful fetch.
         known_activity_ids : set, optional
             Activity IDs that already have detail data — these will be skipped.
+        incremental : bool, optional
+            When True, skips phase 1 (profile) and phase 2b (activity pagination)
+            since daily syncs only need recent date-filtered data. Defaults to False.
         """
         today = target_date or date.today().isoformat()
         e_date = end_date or today
@@ -885,13 +889,14 @@ class GarminClient:
                         new = result["data"]
                         all_results[name]["data"] = _merge_data(existing, new)
 
-        # 1. Profile endpoints (no date)
-        print("  Fetching profile data...")
-        profile = self._fetch_batch(
-            profile_endpoints(),
-            profile_graphql(self._display_name),
-        )
-        _process_batch(profile)
+        # 1. Profile endpoints (no date) — skipped for incremental sync
+        if not incremental:
+            print("  Fetching profile data...")
+            profile = self._fetch_batch(
+                profile_endpoints(),
+                profile_graphql(self._display_name),
+            )
+            _process_batch(profile)
 
         # 2. Full-range queries
         print("  Fetching full-range data (activities, HRV, training, VO2max, weight)...")
@@ -900,33 +905,36 @@ class GarminClient:
         full = self._fetch_batch(full_rest, full_gql)
         _process_batch(full)
 
-        # 2b. Paginate through ALL activities
-        page_start = 100
-        while True:
-            act_result = self._fetch_batch(
-                {
-                    f"activities_page_{page_start}": f"/gc-api/activitylist-service/activities/search/activities?limit=100&start={page_start}"
-                },
-                {},
-            )
-            page_data = act_result.get(f"activities_page_{page_start}", {})
-            if page_data.get("status") != 200 or not page_data.get("data"):
-                break
-            activities_page = page_data["data"]
-            if not isinstance(activities_page, list) or len(activities_page) == 0:
-                break
-            print(f"    Activities page: fetched {len(activities_page)} more (offset {page_start})")
-            if on_batch:
-                for a in activities_page:
-                    on_batch("activities", a)
-            else:
-                for a in activities_page:
-                    if "activities" not in all_results:
-                        all_results["activities"] = {"status": 200, "data": []}
-                    all_results["activities"]["data"].append(a)
-            page_start += 100
-            if len(activities_page) < 100:
-                break
+        # 2b. Paginate through ALL activities — skipped for incremental sync.
+        # Phase 2's activities_range GraphQL already captures recent activities
+        # filtered by date, so pagination is only needed for full historical syncs.
+        if not incremental:
+            page_start = 100
+            while True:
+                act_result = self._fetch_batch(
+                    {
+                        f"activities_page_{page_start}": f"/gc-api/activitylist-service/activities/search/activities?limit=100&start={page_start}"
+                    },
+                    {},
+                )
+                page_data = act_result.get(f"activities_page_{page_start}", {})
+                if page_data.get("status") != 200 or not page_data.get("data"):
+                    break
+                activities_page = page_data["data"]
+                if not isinstance(activities_page, list) or len(activities_page) == 0:
+                    break
+                print(f"    Activities page: fetched {len(activities_page)} more (offset {page_start})")
+                if on_batch:
+                    for a in activities_page:
+                        on_batch("activities", a)
+                else:
+                    for a in activities_page:
+                        if "activities" not in all_results:
+                            all_results["activities"] = {"status": 200, "data": []}
+                        all_results["activities"]["data"].append(a)
+                page_start += 100
+                if len(activities_page) < 100:
+                    break
 
         # 3. Monthly-chunked queries
         print("  Fetching monthly-chunked data (sleep stats, HRV, calories, etc.)...")
