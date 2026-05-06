@@ -15,6 +15,7 @@ dependencies = [
     "streamlit>=1.40",
     "httpx>=0.28",
     "python-dotenv>=1.0",
+    "seleniumbase>=4.30",
     "pydantic>=2.0",
 ]
 

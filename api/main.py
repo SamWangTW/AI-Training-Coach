@@ -11,6 +11,7 @@ Run with:
     uvicorn api.main:app --reload
 """
 import asyncio
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -32,6 +33,13 @@ _REPO_ROOT = Path(__file__).parent.parent
 _GARMIN_DIR = _REPO_ROOT / "garmin-givemydata"
 _PYTHON = _GARMIN_DIR / "venv" / "Scripts" / "python.exe" if sys.platform == "win32" else _GARMIN_DIR / "venv" / "bin" / "python"
 
+# Make garmin_mcp and garmin_client importable from the main process.
+# GARMIN_DATA_DIR must be set before garmin_mcp.db is first imported because
+# it resolves DB_PATH at module load time.
+os.environ.setdefault("GARMIN_DATA_DIR", str(_GARMIN_DIR))
+if str(_GARMIN_DIR) not in sys.path:
+    sys.path.insert(0, str(_GARMIN_DIR))
+
 GARMIN_MCP = {
     "command": str(_PYTHON),
     "args": [str(_GARMIN_DIR / "run_mcp.py")],
@@ -44,30 +52,20 @@ GARMIN_MCP = {
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
 async def _auto_sync():
-    """Run incremental Garmin sync using the garmin-givemydata venv.
+    """Run incremental Garmin sync directly in-process.
 
-    Uses asyncio.to_thread so the event loop is never blocked and works
-    on Windows regardless of which event loop type uvicorn uses.
-    Fired via asyncio.create_task — runs concurrently with MCP setup.
-    Errors are logged, not raised.
+    Imports incremental_sync() from garmin_mcp and runs it in a thread pool
+    so the event loop is never blocked. Fired via asyncio.create_task —
+    runs concurrently with MCP setup. Errors are logged, not raised.
     """
-    import subprocess
     print("[startup] syncing latest Garmin data...")
     try:
-        def _run():
-            return subprocess.run(
-                [str(_PYTHON), "-m", "garmin_mcp.sync"],
-                cwd=str(_GARMIN_DIR),
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-        result = await asyncio.to_thread(_run)
-        if result.returncode == 0:
-            print("[startup] sync complete")
+        from garmin_mcp.sync import incremental_sync
+        result = await asyncio.wait_for(asyncio.to_thread(incremental_sync), timeout=300)
+        if result.get("status") == "ok":
+            print(f"[startup] sync complete — {result.get('total_upserted', 0)} records upserted")
         else:
-            msg = (result.stderr or result.stdout).strip()
-            print(f"[startup] sync failed: {msg}")
+            print(f"[startup] sync failed: {result.get('message', result)}")
     except asyncio.TimeoutError:
         print("[startup] sync timed out after 5 minutes")
     except Exception as e:
