@@ -5,6 +5,7 @@ from langgraph.prebuilt import ToolNode
 
 from memory.client import get_memory_client
 from agent.types import MemoryUpdate, ModelUpdate
+from agent.router import route_tools, select_tools
 
 SYSTEM_PROMPT = """\
 You are a personal AI running coach with direct access to the user's Garmin Connect data.
@@ -27,7 +28,6 @@ def make_nodes(tools: list) -> tuple:
     memory_client = get_memory_client()
 
     model = ChatAnthropic(model="claude-sonnet-4-6", temperature=0)
-    model_with_tools = model.bind_tools(tools)
     tool_node = ToolNode(tools)
 
     async def retrieve_memories(state: dict) -> MemoryUpdate:
@@ -58,8 +58,31 @@ def make_nodes(tools: list) -> tuple:
             system_content += "\n\n## Personal context from previous conversations:\n"
             system_content += "\n".join(f"- {m}" for m in memories)
 
+        # Route: classify the user's intent and bind only the relevant tools.
+        user_message = ""
+        for m in reversed(list(state["messages"])):
+            if isinstance(m, HumanMessage) and isinstance(m.content, str):
+                user_message = m.content
+                break
+
+        categories = await route_tools(user_message) if user_message else list()
+        routed_tools = select_tools(tools, categories) if categories else tools
+        print(f"[router] categories={categories} tools_selected={len(routed_tools)}/{len(tools)}")
+
+        routed_model = model.bind_tools(routed_tools)
         messages = [SystemMessage(content=system_content)] + list(state["messages"])
-        response = await model_with_tools.ainvoke(messages)
+        response = await routed_model.ainvoke(messages)
+
+        # Token usage logging — compare against baseline to measure routing savings.
+        usage = response.usage_metadata
+        if usage:
+            print(
+                f"[tokens] input={usage['input_tokens']} "
+                f"output={usage['output_tokens']} "
+                f"total={usage['total_tokens']} "
+                f"tools_bound={len(routed_tools)}"
+            )
+
         return ModelUpdate(messages=[response])
 
     async def save_memories(state: dict) -> dict:

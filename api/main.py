@@ -46,31 +46,32 @@ GARMIN_MCP = {
 async def _auto_sync():
     """Run incremental Garmin sync using the garmin-givemydata venv.
 
-    Uses asyncio.create_subprocess_exec so the event loop is never blocked.
+    Uses asyncio.to_thread so the event loop is never blocked and works
+    on Windows regardless of which event loop type uvicorn uses.
     Fired via asyncio.create_task — runs concurrently with MCP setup.
     Errors are logged, not raised.
     """
+    import subprocess
     print("[startup] syncing latest Garmin data...")
     try:
-        proc = await asyncio.create_subprocess_exec(
-            str(_PYTHON), "-m", "garmin_mcp.sync",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(_GARMIN_DIR),
-        )
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-        except asyncio.TimeoutError:
-            proc.kill()
-            print("[startup] sync timed out after 5 minutes")
-            return
-        if proc.returncode == 0:
+        def _run():
+            return subprocess.run(
+                [str(_PYTHON), "-m", "garmin_mcp.sync"],
+                cwd=str(_GARMIN_DIR),
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        result = await asyncio.to_thread(_run)
+        if result.returncode == 0:
             print("[startup] sync complete")
         else:
-            msg = (stderr or stdout).decode().strip()
+            msg = (result.stderr or result.stdout).strip()
             print(f"[startup] sync failed: {msg}")
+    except asyncio.TimeoutError:
+        print("[startup] sync timed out after 5 minutes")
     except Exception as e:
-        print(f"[startup] sync skipped ({e})")
+        print(f"[startup] sync skipped ({type(e).__name__}: {e})")
 
 """
 When FastAPI starts up, it runs the lifespan function in api/main.py:62. 

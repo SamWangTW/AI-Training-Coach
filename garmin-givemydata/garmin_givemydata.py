@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """
+garmin_givemydata.py is a manual CLI tool — you run it from the terminal when you need it. 
+sync.py is the automatic daily sync called at server startup.
+
 garmin-givemydata: Get your Garmin Connect data back.
 
 Smart sync: if the database is empty, fetches all historical data year by year.
