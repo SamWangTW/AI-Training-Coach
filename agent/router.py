@@ -116,7 +116,7 @@ async def route_tools(user_message: str) -> list[str]:
     """Classify user intent and return the relevant category names."""
     response = await _router_model.ainvoke(
         [
-            {"role": "system", "content": ROUTER_PROMPT},
+            {"role": "system", "content": [{"type": "text", "text": ROUTER_PROMPT, "cache_control": {"type": "ephemeral"}}]},
             {"role": "user", "content": user_message},
         ]
     )
