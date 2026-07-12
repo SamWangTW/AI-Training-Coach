@@ -1,0 +1,49 @@
+services:
+  mcp:
+    build:
+      context: ./garmin-givemydata
+    volumes:
+      - ./garmin-givemydata:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8000), timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      - GARMIN_MCP_URL=http://mcp:8000/mcp
+      - ENABLE_AUTO_SYNC=false
+    depends_on:
+      mcp:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  ui:
+    build:
+      context: ./ui
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8501:8501"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

@@ -1,0 +1,3 @@
+# Dependencies for the containerized Streamlit UI only.
+streamlit>=1.40
+httpx>=0.28

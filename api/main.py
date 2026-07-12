@@ -40,13 +40,23 @@ os.environ.setdefault("GARMIN_DATA_DIR", str(_GARMIN_DIR))
 if str(_GARMIN_DIR) not in sys.path:
     sys.path.insert(0, str(_GARMIN_DIR))
 
-GARMIN_MCP = {
-    "command": str(_PYTHON),
-    "args": [str(_GARMIN_DIR / "run_mcp.py")],
-    "transport": "stdio",
-    "cwd": str(_GARMIN_DIR),
-    "env": {"GARMIN_DATA_DIR": str(_GARMIN_DIR)},
-}
+_GARMIN_MCP_URL = os.environ.get("GARMIN_MCP_URL")
+
+if _GARMIN_MCP_URL:
+    # Docker: MCP server runs in its own container, reachable over the network.
+    GARMIN_MCP = {
+        "url": _GARMIN_MCP_URL,
+        "transport": "streamable_http",
+    }
+else:
+    # Local dev: spawn the MCP server as a stdio subprocess (unchanged behavior).
+    GARMIN_MCP = {
+        "command": str(_PYTHON),
+        "args": [str(_GARMIN_DIR / "run_mcp.py")],
+        "transport": "stdio",
+        "cwd": str(_GARMIN_DIR),
+        "env": {"GARMIN_DATA_DIR": str(_GARMIN_DIR)},
+    }
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -80,7 +90,10 @@ You don't want to redo this on every request, so you store the result somewhere 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    asyncio.create_task(_auto_sync())  # fire and forget — runs concurrently with MCP setup
+    if os.environ.get("ENABLE_AUTO_SYNC", "true").lower() == "false":
+        print("[startup] auto-sync disabled (ENABLE_AUTO_SYNC=false)")
+    else:
+        asyncio.create_task(_auto_sync())  # fire and forget — runs concurrently with MCP setup
 
     custom_tools = get_custom_tools()
 

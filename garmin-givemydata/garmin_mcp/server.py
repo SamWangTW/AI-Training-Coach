@@ -4,6 +4,7 @@ Garmin MCP server — exposes health and activity data via FastMCP tools.
 
 import json
 import logging
+import os
 import threading
 from datetime import date, timedelta
 
@@ -13,7 +14,11 @@ from .db import get_connection, init_db, query, query_readonly
 
 log = logging.getLogger(__name__)
 
-mcp = FastMCP("garmin")
+mcp = FastMCP(
+    "garmin",
+    host=os.environ.get("MCP_HOST", "127.0.0.1"),
+    port=int(os.environ.get("MCP_PORT", "8000")),
+)
 
 # Ensure all tables exist on startup
 _conn = get_connection()

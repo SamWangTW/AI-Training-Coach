@@ -1,0 +1,4 @@
+# Dependencies for the containerized Garmin MCP server only.
+# garmin_mcp/server.py + db.py only need the mcp package + stdlib sqlite3 —
+# seleniumbase/garmin_client (browser login/scraping) are not needed here.
+mcp[cli]>=1.0

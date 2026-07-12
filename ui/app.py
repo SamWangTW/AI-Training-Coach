@@ -3,10 +3,12 @@
 Run with:
     streamlit run ui/app.py
 """
+import os
+
 import httpx
 import streamlit as st
 
-API_URL = "http://localhost:8000"
+API_URL = os.environ.get("API_URL", "http://localhost:8000")
 REQUEST_TIMEOUT = 120.0  # Garmin MCP calls can be slow
 
 # ── Page config ───────────────────────────────────────────────────────────────

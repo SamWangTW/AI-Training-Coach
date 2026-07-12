@@ -1,0 +1,13 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+.env
+.env.example
+.pytest_cache/
+tests/
+ui/
+garmin-givemydata/
+downloaded_files/
+uv.lock
+README.md
