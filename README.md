@@ -213,6 +213,24 @@ Open [http://localhost:8501](http://localhost:8501) and start asking questions a
 
 ---
 
+## Run with Docker
+
+The API, Garmin MCP server, and UI each run in their own container (`Dockerfile`, `garmin-givemydata/Dockerfile`, `ui/Dockerfile`), wired together with `docker-compose.yml`. The API talks to the MCP server over the network (`streamable-http`) instead of spawning it as a local subprocess, and `garmin.db` is mounted as a volume so it reads your real, already-synced data.
+
+**Prerequisites:** Docker Desktop running, `.env` set up (same as step 3 above), and Garmin data already synced at least once locally (step 4 above) — the containers read the existing `garmin-givemydata/garmin.db`, they don't fetch new data themselves.
+
+```bash
+docker compose up --build
+```
+
+Open [http://localhost:8501](http://localhost:8501).
+
+Notes:
+- Auto-sync on startup is disabled in the containerized API (`ENABLE_AUTO_SYNC=false`), since it depends on Selenium/browser automation that's intentionally left out of that image to keep it small. Sync new activities locally as usual (see below) — since `garmin.db` is a live-mounted volume, the containers immediately see the updated data.
+- To stop everything: `docker compose down`.
+
+---
+
 ## Syncing New Activities
 
 After a run, sync your latest data in one of two ways:
