@@ -14,6 +14,9 @@ build/
 .coach_memory.json
 .garmin-connect-mcp/
 
+# Runtime artifacts
+downloaded_files/
+
 # Playwright artifacts
 .playwright-mcp/
 

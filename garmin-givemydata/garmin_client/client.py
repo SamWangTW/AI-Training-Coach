@@ -70,11 +70,13 @@ class _ProcessLifecycle:
         self._cleaned = False
 
     def install(self):
+        import threading
         atexit.register(self._on_exit)
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            signal.signal(sig, self._on_signal)
-        if hasattr(signal, "SIGHUP"):
-            signal.signal(signal.SIGHUP, self._on_signal)
+        if threading.current_thread() is threading.main_thread():
+            for sig in (signal.SIGTERM, signal.SIGINT):
+                signal.signal(sig, self._on_signal)
+            if hasattr(signal, "SIGHUP"):
+                signal.signal(signal.SIGHUP, self._on_signal)
 
     def _on_signal(self, signum, frame):
         self._on_exit()
