@@ -1,11 +1,14 @@
-"""Layer 2 evals: assert the agent calls the correct tools for each question.
+"""Layer 2 evals: assert the model picks the correct tools for each question.
 
-Uses the real tool implementations from garmin_mcp/server.py wrapped as
-LangChain tools, querying the real garmin.db. Only the memory client is
-mocked since mem0 is not needed to test tool selection.
+Calls agent/nodes.py's call_model directly — the single model decision that
+picks which tool(s) to invoke — rather than running the full agent graph.
+This means the chosen tools are never actually executed (no database read
+ever happens), so these tests don't depend on a real garmin.db and can run
+in CI. Only the tools' schemas (name, docstring, args) need to exist for the
+model to choose from — the underlying functions never run.
 
 A test passes when:
-  - every tool in must_call appears in the agent's tool calls
+  - every tool in must_call appears in the model's tool calls
   - every tool in must_not_call does NOT appear
 """
 import os
@@ -14,7 +17,7 @@ from pathlib import Path
 import pytest
 from unittest.mock import MagicMock, patch
 from langchain_core.tools import StructuredTool
-from langchain_core.messages import AIMessage
+from langchain_core.messages import HumanMessage
 
 # Make garmin_mcp importable and point it at the real database
 _GARMIN_DIR = Path(__file__).parent.parent / "garmin-givemydata"
@@ -24,7 +27,7 @@ if str(_GARMIN_DIR) not in sys.path:
 
 from garmin_mcp import server as _server
 
-from agent.graph import create_graph
+from agent.nodes import make_nodes
 from agent.tools import get_custom_tools
 
 
@@ -36,7 +39,11 @@ def _wrap(fn) -> StructuredTool:
 
 
 def _all_real_tools() -> list:
-    """Real Garmin tool implementations + custom analysis tools."""
+    """Real Garmin tool schemas + custom analysis tools.
+
+    Only used here for their name/docstring/args — call_model never
+    executes them, so none of these functions actually run.
+    """
     server_fns = [
         _server.garmin_schema,
         _server.garmin_query,
@@ -89,35 +96,28 @@ def _all_real_tools() -> list:
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 @pytest.fixture
-def graph():
-    """Agent graph with real Garmin tools and a no-op memory client."""
+def call_model():
+    """The agent's model-decision node, with a no-op memory client.
+
+    make_nodes() calls get_memory_client() once up front even though
+    call_model itself never uses it — patched here to avoid initializing a
+    real mem0 client for a test that doesn't need one.
+    """
     with patch("agent.nodes.get_memory_client") as mock_mc:
-        mock_instance = MagicMock()
-        mock_instance.search_for_user.return_value = []
-        mock_instance.add.return_value = None
-        mock_mc.return_value = mock_instance
-        yield create_graph(_all_real_tools())
-
-
-def _tools_called(result: dict) -> list[str]:
-    """Return all tool names the agent called during the run."""
-    return [
-        tc["name"]
-        for msg in result.get("messages", [])
-        if isinstance(msg, AIMessage)
-        for tc in (getattr(msg, "tool_calls", None) or [])
-    ]
+        mock_mc.return_value = MagicMock()
+        _, call_model_fn, _, _, _ = make_nodes(_all_real_tools())
+        yield call_model_fn
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
-_CONFIG = {"configurable": {"thread_id": "test"}}
-
-
-@pytest.mark.parametrize("question, must_call, must_not_call", [
+@pytest.mark.parametrize("question, must_call_any_of, must_not_call", [
     (
+        # garmin_today is a general-purpose "everything about today" tool
+        # bound on every request — calling it first for a sleep/steps
+        # question is a valid answer on its own, not just garmin_sleep.
         "how did I sleep last night?",
-        ["garmin_sleep"],
+        ["garmin_sleep", "garmin_today"],
         ["garmin_activities"],
     ),
     (
@@ -132,28 +132,22 @@ _CONFIG = {"configurable": {"thread_id": "test"}}
     ),
     (
         "how many steps did I take today?",
-        ["garmin_steps"],
+        ["garmin_steps", "garmin_today"],
         ["garmin_activities", "garmin_sleep"],
     ),
 ])
-async def test_agent_calls_correct_tools(question, must_call, must_not_call, graph):
-    result = await graph.ainvoke(
-        {
-            "messages": [{"role": "user", "content": question}],
-            "user_id": "test",
-            "memories": [],
-        },
-        config=_CONFIG,
+async def test_model_picks_correct_tools(question, must_call_any_of, must_not_call, call_model):
+    state = {"messages": [HumanMessage(content=question)], "memories": []}
+    result = await call_model(state)
+
+    response = result["messages"][0]
+    called = [tc["name"] for tc in (getattr(response, "tool_calls", None) or [])]
+
+    assert any(tool in called for tool in must_call_any_of), (
+        f"\nQuestion:        {question!r}"
+        f"\nExpected one of: {must_call_any_of}"
+        f"\nActually called: {called}"
     )
-
-    called = _tools_called(result)
-
-    for tool in must_call:
-        assert tool in called, (
-            f"\nQuestion:        {question!r}"
-            f"\nExpected call:   {tool!r}"
-            f"\nActually called: {called}"
-        )
 
     for tool in must_not_call:
         assert tool not in called, (
