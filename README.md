@@ -114,20 +114,30 @@ garmin-training-coach/
 ├── agent/
 │   ├── graph.py          # LangGraph agent graph definition
 │   ├── nodes.py          # Node functions (retrieve_memories, call_model, save_memories)
+│   ├── router.py         # Two-stage tool routing (Haiku classifier → tool subset)
 │   └── tools.py          # Custom analysis tools
 ├── api/
 │   └── main.py           # FastAPI app — connects MCP server at startup
 ├── memory/
 │   └── client.py         # mem0 3-tier setup: hosted → local → JSON fallback
 ├── ui/
-│   └── app.py            # Streamlit chat interface
+│   ├── app.py            # Streamlit chat interface
+│   └── Dockerfile
 ├── garmin-givemydata/    # Local Garmin data pipeline
 │   ├── garmin.db         # SQLite database (47 tables, your full Garmin history)
 │   ├── garmin_mcp/
 │   │   ├── server.py     # 44 MCP tools over SQLite
 │   │   ├── sync.py       # Incremental sync (today + yesterday)
 │   │   └── db.py         # SQLite connection layer
-│   └── run_mcp.py        # MCP server entry point
+│   ├── run_mcp.py        # MCP server entry point
+│   └── Dockerfile
+├── tests/
+│   ├── test_router.py      # Layer 1 evals — router picks correct tool categories
+│   └── test_tool_calls.py  # Layer 2 evals — model picks correct tool per question
+├── .github/workflows/
+│   └── test.yml          # CI — runs the eval suite on relevant pushes/PRs
+├── Dockerfile            # API service image
+├── docker-compose.yml    # Wires api + mcp + ui containers together
 ├── datasette-metadata.yaml  # Table browser config for garmin.db
 ├── start.bat             # One-command launcher (backend + frontend)
 └── .env.example
@@ -250,6 +260,25 @@ The sync fetches today and yesterday from Garmin Connect, skips activities alrea
 
 ---
 
+## Testing & CI
+
+Two layers of evals validate the agent's tool-selection behavior against real Claude/Haiku calls, not fixed mock outputs:
+
+| File | What it checks |
+|---|---|
+| `tests/test_router.py` | The Haiku classifier (`agent/router.py`) maps each question to the correct tool categories |
+| `tests/test_tool_calls.py` | The main model (`agent/nodes.py`'s `call_model`) picks the correct Garmin tool for a given question — tested directly against the node function, so no real `garmin.db` is needed |
+
+Run locally:
+
+```bash
+uv run pytest tests/ -v
+```
+
+A [GitHub Actions workflow](.github/workflows/test.yml) runs both suites automatically on any push or pull request to `main` that touches `agent/`, `tests/`, or `pyproject.toml` — scoped to relevant changes only, since unrelated commits (docs, UI tweaks) can't affect routing behavior. Requires an `ANTHROPIC_API_KEY` repository secret configured in GitHub, since these tests call the real API rather than mocks.
+
+---
+
 ## Browsing Your Data
 
 To explore the raw SQLite database in a web UI (similar to Supabase):
@@ -306,11 +335,11 @@ Garmin deployed aggressive bot detection in March 2026 that broke all Python HTT
 
 ## Roadmap
 
+- [x] Evaluation suite — test agent correctness on known coaching scenarios, wired into CI
 - [ ] Interval training analysis — detect and compare track/interval sessions
 - [ ] Automatic post-run analysis triggered after each sync
 - [ ] Weekly training summary pushed to email
 - [ ] Training plan generation with week-by-week structure
-- [ ] Evaluation suite — test agent correctness on known coaching scenarios
 
 ---
 
