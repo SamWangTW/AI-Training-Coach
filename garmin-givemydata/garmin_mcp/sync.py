@@ -14,7 +14,7 @@ from garmin_mcp.db import get_connection, init_db, save_to_db
 logger = logging.getLogger(__name__)
 
 
-def incremental_sync(target_date: str = None) -> dict:
+def incremental_sync(target_date: str = None, skip_if_synced_today: bool = False) -> dict:
     """Fetch today's data from Garmin and save directly to the database.
 
     Parameters
@@ -22,6 +22,11 @@ def incremental_sync(target_date: str = None) -> dict:
     target_date:
         ISO date string (``YYYY-MM-DD``) to treat as "today".  Defaults to
         the actual current date.
+    skip_if_synced_today:
+        If True and the last successful sync already happened on today's
+        local calendar date, skip the sync entirely instead of re-running
+        the Garmin login/fetch. Defaults to False so direct/manual/CLI
+        invocations always sync when explicitly requested.
 
     Returns
     -------
@@ -64,6 +69,14 @@ def incremental_sync(target_date: str = None) -> dict:
     last_sync = conn.execute(
         "SELECT sync_date FROM sync_log WHERE status='ok' ORDER BY sync_date DESC LIMIT 1"
     ).fetchone()
+
+    if skip_if_synced_today and last_sync:
+        last_sync_local_date = datetime.fromisoformat(last_sync[0]).astimezone().date()
+        if last_sync_local_date == datetime.now().astimezone().date():
+            conn.close()
+            logger.info("Already synced today (%s, local) — skipping", last_sync_local_date)
+            return {"status": "skipped", "message": f"Already synced today ({last_sync_local_date})"}
+
     if last_sync:
         last_sync_date = date.fromisoformat(last_sync[0][:10])
         start_date = (last_sync_date - timedelta(days=1)).isoformat()

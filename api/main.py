@@ -71,9 +71,13 @@ async def _auto_sync():
     print("[startup] syncing latest Garmin data...")
     try:
         from garmin_mcp.sync import incremental_sync
-        result = await asyncio.wait_for(asyncio.to_thread(incremental_sync), timeout=300)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(incremental_sync, skip_if_synced_today=True), timeout=300
+        )
         if result.get("status") == "ok":
             print(f"[startup] sync complete — {result.get('total_upserted', 0)} records upserted")
+        elif result.get("status") == "skipped":
+            print(f"[startup] {result.get('message')}")
         else:
             print(f"[startup] sync failed: {result.get('message', result)}")
     except asyncio.TimeoutError:
