@@ -2,8 +2,8 @@
 FROM python:3.12-slim AS builder
 WORKDIR /app
 
-COPY requirements-docker.txt .
-RUN pip install --user --no-cache-dir -r requirements-docker.txt
+COPY requirements-api.txt .
+RUN pip install --user --no-cache-dir -r requirements-api.txt
 
 # ---- Stage 2: runtime ----
 FROM python:3.12-slim

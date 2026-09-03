@@ -400,7 +400,7 @@ brew install python@3.12
 cd garmin-givemydata
 python3.12 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-mcp-local.txt
 # Chrome must be installed (https://www.google.com/chrome/)
 cp .env.example .env
 ```
@@ -414,7 +414,7 @@ sudo apt update && sudo apt install python3.12 python3.12-venv
 cd garmin-givemydata
 python3.12 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-mcp-local.txt
 # Chrome must be installed (https://www.google.com/chrome/)
 cp .env.example .env
 ```
@@ -428,7 +428,7 @@ sudo dnf install python3.12
 cd garmin-givemydata
 python3.12 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-mcp-local.txt
 # Chrome must be installed (https://www.google.com/chrome/)
 cp .env.example .env
 ```
@@ -443,7 +443,7 @@ Install Python 3.10+ from [python.org](https://www.python.org/downloads/) — ch
 cd garmin-givemydata
 python -m venv venv
 venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements-mcp-local.txt
 # Chrome must be installed (https://www.google.com/chrome/)
 copy .env.example .env
 ```

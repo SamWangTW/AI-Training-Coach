@@ -40,7 +40,7 @@ if not exist "venv" (
 call venv\Scripts\activate.bat
 
 pip install --upgrade pip -q 2>nul
-pip install -r requirements.txt -q 2>nul
+pip install -r requirements-mcp-local.txt -q 2>nul
 echo        Dependencies installed
 
 REM ── Step 3: Verify Chrome ──

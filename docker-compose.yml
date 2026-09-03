@@ -7,7 +7,7 @@ services:
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8000), timeout=3)"]
       interval: 10s
-      timeout: 5s
+      timeout: 5s #If a single check takes longer than timeout (5 seconds) to respond, that counts as a failure.
       retries: 5
       start_period: 10s
 
@@ -27,7 +27,7 @@ services:
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
       interval: 10s
-      timeout: 5s
+      timeout: 5s 
       retries: 5
       start_period: 15s
 

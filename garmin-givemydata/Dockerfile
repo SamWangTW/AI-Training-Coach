@@ -2,8 +2,8 @@
 FROM python:3.12-slim AS builder
 WORKDIR /app
 
-COPY requirements-mcp.txt .
-RUN pip install --user --no-cache-dir -r requirements-mcp.txt
+COPY requirements-mcp-docker.txt .
+RUN pip install --user --no-cache-dir -r requirements-mcp-docker.txt
 
 # ---- Stage 2: runtime ----
 FROM python:3.12-slim

@@ -72,7 +72,7 @@ fi
 source venv/bin/activate
 
 pip install --upgrade pip -q 2>&1 | tail -1
-pip install -r requirements.txt -q 2>&1 | tail -1
+pip install -r requirements-mcp-local.txt -q 2>&1 | tail -1
 echo "       Dependencies installed"
 
 # ── Step 4: Verify Chrome is ready ────────────────────────────

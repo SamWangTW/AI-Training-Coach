@@ -80,6 +80,7 @@ GENERAL_TOOLS: list[str] = [
     "garmin_schema",
     "garmin_trends",
     "garmin_daily_events",
+    "garmin_sync",
 ]
 
 ROUTER_PROMPT = """\
