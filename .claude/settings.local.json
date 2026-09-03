@@ -1,6 +1,6 @@
 {
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "garmin"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
